@@ -2,11 +2,14 @@
 title: "HR information" 
 output: 
   flexdashboard::flex_dashboard:
+    theme: cerulean
     orientation: columns
     vertical_layout: fill
+runtime: shiny    
 ---
 
 ```{r setup, include=FALSE}
+
 library(flexdashboard)
 library(dplyr)
 library(rvest)
@@ -17,15 +20,19 @@ library(XML)
 library(jsonlite)
 library(kableExtra)
 library(DT)
+library(shiny)
+
 
 ## 날짜 및 시간 설정
 now <- Sys.time()
 today <- format(Sys.time(), "%Y.%m.%d.")
 ```
 
-## Column {data-width="550"}
+# 채용 / NEWS
 
-### 공무원 채용 (**`r now`**)
+## Column {data-width="600"}
+
+### 공무원 채용 (**`r now`**) [더보기](https://gojobs.go.kr/apmList.do?searchJobsecode=020&prgl=apmList&menuNo=401&selMenuNo=400&searchListEmpmnsecode=e01)
 
 ```{r}
 Stack1 <- NULL
@@ -52,7 +59,7 @@ data1 %>%
 
 ```
 
-### 공공기관 채용 (**`r now`**)
+### 공공기관 채용 (**`r now`**) [더보기](https://gojobs.go.kr/apmList.do?searchJobsecode=020&prgl=apmList&menuNo=401&selMenuNo=400&searchListEmpmnsecode=e08)
 
 ```{r}
 Stack2 <- NULL
@@ -141,7 +148,7 @@ for (i in 1:2){
 names(Stack3) <- c("기업명", "공고명", "link", "경력", "학력", "지역", "고용형태", "채용분야", "채용기간")
 
 data3 <- Stack3 %>%
-  mutate(공고명 = cell_spec(공고명, "html", link = link, color="#062872"))
+  mutate(공고명 = cell_spec(공고명, "html", link = link, color="#1576d6"))
 
 data3 <- data3 %>% select(기업명, 공고명, 고용형태, 채용기간)
 
@@ -155,7 +162,7 @@ data3 %>%
 
 ```
 
-## Column {.tabset data-width="450"}
+## Column {.tabset data-width="400"}
 
 ### News monitoring (**`r now`**)
 
@@ -246,7 +253,7 @@ tab3 <- tab3 %>%
 news <- rbind(tab1, tab2, tab3)
 
 news2 <- news %>%
-  mutate(title = cell_spec(title, "html", link = link, color="#062872")) %>% 
+  mutate(title = cell_spec(title, "html", link = link, color="#038085")) %>% 
   select(keyword, title, pubDate)
 
 news2 %>% 
@@ -256,4 +263,15 @@ news2 %>%
   column_spec(2, width = "50em") %>%
   column_spec(3, width = "30em")
 
+```
+
+# 고용노동지표
+
+```{r}
+ui <- fluidPage(
+  tags$iframe(src = "https://eboard.moel.go.kr/indicator/detail?menu_idx=2&mng_data_idx=10242&inflow_type=M#", style = "width:100%; height:800px;"))
+
+server <- function(input, output) { }
+
+shinyApp(ui, server)
 ```
