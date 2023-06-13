@@ -1,0 +1,277 @@
+---
+title: "HR information" 
+output: 
+  flexdashboard::flex_dashboard:
+    theme: cerulean
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny    
+---
+
+```{r setup, include=FALSE}
+
+library(flexdashboard)
+library(dplyr)
+library(rvest)
+library(stringr)
+library(writexl)
+library(httr)
+library(XML)
+library(jsonlite)
+library(kableExtra)
+library(DT)
+library(shiny)
+
+
+## 날짜 및 시간 설정
+now <- Sys.time()
+today <- format(Sys.time(), "%Y.%m.%d.")
+```
+
+# 채용 / NEWS
+
+## Column {data-width="600"}
+
+### 공무원 채용 (**`r now`**) [더보기](https://gojobs.go.kr/apmList.do?searchJobsecode=020&prgl=apmList&menuNo=401&selMenuNo=400&searchListEmpmnsecode=e01)
+
+```{r}
+Stack1 <- NULL
+
+for (i in 1:3){
+  URL <- str_c("https://gojobs.go.kr/apmList.do?searchJobsecode=020&prgl=apmList&menuNo=401&selMenuNo=400&searchListEmpmnsecode=e01&pageIndex=", i)
+  res <- read_html(URL)
+  tab <- res %>% 
+    html_table(fill=TRUE) %>% 
+    .[[2]]
+  Stack1 <- rbind(Stack1, tab)
+  Sys.sleep(1)
+}
+
+data1 <- Stack1 %>% select(기관명, 공고명, 게시일, 공고마감일)
+
+data1 %>%
+  kable(escape=FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  column_spec(1, width = "17em") %>%
+  column_spec(2, width = "35em") %>%
+  column_spec(3, width = "8em") %>%
+  column_spec(4, width = "8em")
+
+```
+
+### 공공기관 채용 (**`r now`**) [더보기](https://gojobs.go.kr/apmList.do?searchJobsecode=020&prgl=apmList&menuNo=401&selMenuNo=400&searchListEmpmnsecode=e08)
+
+```{r}
+Stack2 <- NULL
+
+for (i in 1:3){
+  URL <- str_c("https://gojobs.go.kr/apmList.do?searchJobsecode=020&prgl=apmList&menuNo=401&selMenuNo=400&searchListEmpmnsecode=e08&pageIndex=", i)
+  res <- read_html(URL)
+  tab <- res %>% 
+    html_table(fill=TRUE) %>% 
+    .[[2]]
+  Stack2 <- rbind(Stack2, tab)
+  Sys.sleep(1)
+}
+
+data2 <- Stack2 %>% select(기관명, 공고명, 게시일, 공고마감일)
+
+data2 %>%
+  kable(escape=FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  column_spec(1, width = "17em") %>%
+  column_spec(2, width = "35em") %>%
+  column_spec(3, width = "8em") %>%
+  column_spec(4, width = "8em")
+```
+
+### 민간 채용 (**`r now`**)
+
+```{r}
+Stack3 <- NULL
+
+for (i in 1:2){
+    URL2 <- str_c("https://job.incruit.com/jobdb_list/searchjob.asp?group1=1&rgn1=149&occ1=102&occ1=101&occ1=100&occ1=130&page=",i)
+    res2 <- read_html(URL2)
+    
+    pattern <- ".cpname"
+    e1 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text()
+    
+    pattern <- ".cell_mid a"
+    e2 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text()
+    
+    pattern <- ".cell_mid a"
+    e2_2 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_attr("href")
+    
+    pattern <- ".cl_md span:nth-child(1)"
+    e3 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text()
+    
+    pattern <- ".cl_md span:nth-child(2)"
+    e4 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text()
+    
+    pattern <- ".cl_md span:nth-child(3)"
+    e5 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text()
+    
+    pattern <- ".cl_md span:nth-child(4)"
+    e6 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text()
+    
+    pattern <- ".cell_mid .cl_btm"
+    e7 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text()
+    
+    pattern <- ".cell_last"
+    e8 <- res2 %>% 
+      html_nodes(pattern) %>% 
+      html_text() %>% 
+      str_remove("\n") %>% 
+      str_trim()
+    
+    tab <- cbind(e1, e2, e2_2, e3, e4, e5, e6, e7, e8) %>% as_tibble
+    Stack3 <- rbind(Stack3, tab)
+}
+
+names(Stack3) <- c("기업명", "공고명", "link", "경력", "학력", "지역", "고용형태", "채용분야", "채용기간")
+
+data3 <- Stack3 %>%
+  mutate(공고명 = cell_spec(공고명, "html", link = link, color="#1576d6"))
+
+data3 <- data3 %>% select(기업명, 공고명, 고용형태, 채용기간)
+
+data3 %>%
+  kable(escape=FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  column_spec(1, width = "20em") %>%
+  column_spec(2, width = "35em") %>%
+  column_spec(3, width = "8em") %>%
+  column_spec(4, width = "12em")
+
+```
+
+## Column {.tabset data-width="400"}
+
+### News monitoring (**`r now`**)
+
+```{r}
+searchurl <- "https://openapi.naver.com/v1/search/news.json"
+client_id <- "K_lYnZRP_hXDJNVsnFGT"
+client_secret <- "5PDXW21s5N"
+
+search.word1 <- "공무원 연금" %>% 
+  enc2utf8() %>% 
+  URLencode()
+
+search.word2 <- "인사혁신처" %>% 
+  enc2utf8() %>% 
+  URLencode()
+
+search.word3 <- "HR" %>% 
+  enc2utf8() %>% 
+  URLencode()
+
+url1 <- str_c(searchurl,
+             "?query=",search.word1,
+             "&display=100")
+url2 <- str_c(searchurl,
+              "?query=",search.word2,
+              "&display=100")
+url3 <- str_c(searchurl,
+              "?query=",search.word3,
+              "&display=100")
+
+res1 <- GET(url1,
+           add_headers("X-Naver-Client-Id"=client_id,
+                       "X-Naver-Client-Secret"=client_secret))
+res2 <- GET(url2,
+            add_headers("X-Naver-Client-Id"=client_id,
+                        "X-Naver-Client-Secret"=client_secret))
+res3 <- GET(url3,
+            add_headers("X-Naver-Client-Id"=client_id,
+                        "X-Naver-Client-Secret"=client_secret))
+doc1 <- toString(res1)
+return1 <- fromJSON(doc1)
+tab1 <- return1$items
+tab1$title <- tab1$title %>% 
+  str_replace_all("<b>","") %>% 
+  str_replace_all("</b>","") %>% 
+  str_replace_all("&quot","") %>%
+  str_replace_all("&apos","") %>% str_trim()
+tab1$description <- tab1$description %>% 
+  str_replace_all("<b>","") %>% 
+  str_replace_all("</b>","") %>% 
+  str_replace_all("&quot","") %>%
+  str_replace_all("&apos","") %>% str_trim()
+tab1 <- tab1 %>% 
+  mutate(keyword = "공무원 연금")
+
+doc2 <- toString(res2)
+return2 <- fromJSON(doc2)
+tab2 <- return2$items
+tab2$title <- tab2$title %>% 
+  str_replace_all("<b>","") %>% 
+  str_replace_all("</b>","") %>% 
+  str_replace_all("&quot","") %>%
+  str_replace_all("&apos","") %>% str_trim()
+tab2$description <- tab2$description %>% 
+  str_replace_all("<b>","") %>% 
+  str_replace_all("</b>","") %>% 
+  str_replace_all("&quot","") %>%
+  str_replace_all("&apos","") %>% str_trim()
+tab2 <- tab2 %>% 
+  mutate(keyword = "인사혁신처")
+
+doc3 <- toString(res3)
+return3 <- fromJSON(doc3)
+tab3 <- return3$items
+tab3$title <- tab3$title %>% 
+  str_replace_all("<b>","") %>% 
+  str_replace_all("</b>","") %>% 
+  str_replace_all("&quot","") %>%
+  str_replace_all("&apos","") %>% str_trim()
+tab3$description <- tab3$description %>% 
+  str_replace_all("<b>","") %>% 
+  str_replace_all("</b>","") %>% 
+  str_replace_all("&quot","") %>%
+  str_replace_all("&apos","") %>% str_trim()
+tab3 <- tab3 %>% 
+  mutate(keyword = "HR")
+
+news <- rbind(tab1, tab2, tab3)
+
+news2 <- news %>%
+  mutate(title = cell_spec(title, "html", link = link, color="#038085")) %>% 
+  select(keyword, title, pubDate)
+
+news2 %>% 
+  kable(escape=FALSE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed")) %>%
+  column_spec(1, width = "20em") %>%
+  column_spec(2, width = "50em") %>%
+  column_spec(3, width = "30em")
+
+```
+
+# 고용노동지표
+
+```{r}
+ui <- fluidPage(
+  tags$iframe(src = "https://eboard.moel.go.kr/indicator/detail?menu_idx=2&mng_data_idx=10242&inflow_type=M#", style = "width:100%; height:800px;"))
+
+server <- function(input, output) { }
+
+shinyApp(ui, server)
+```
